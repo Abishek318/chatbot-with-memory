@@ -1,22 +1,30 @@
 import streamlit as st
 from Groq_model import llm_model, clear_session_history
+from groq import AuthenticationError
 import os
 import uuid
 
 # Check for API key
 if "GROQ_API_KEY" in os.environ:
-    st.session_state.api_key=os.environ["GROQ_API_KEY"]
+    st.session_state.api_key = os.environ["GROQ_API_KEY"]
 
 if "api_key" not in st.session_state:
-    st.sidebar.warning("Groq API Key not found in environment variables.")
+    st.session_state.api_key = None
+
+def request_api_key():
+    st.sidebar.warning("Groq API Key not found or invalid.")
     api_key = st.sidebar.text_input("Please enter your Groq API Key:", type="password")
     if api_key:
-        st.session_state.api_key= api_key
+        st.session_state.api_key = api_key
         st.sidebar.success("API Key set successfully!")
+        st.session_state.messages = []
         st.rerun()
     else:
         st.sidebar.error("Please provide a valid API Key to continue.")
         st.stop()
+
+if not st.session_state.api_key:
+    request_api_key()
 
 st.title("Chatbot")
 
@@ -24,7 +32,7 @@ st.sidebar.header("About This Bot")
 st.sidebar.write(
     """
     **Chatbot** is designed to assist you with various queries. 
-    It uses advanced AI to understand and respond to your messages. 
+    It uses advanced AI to understand and respond to your messages.
     Feel free to ask anything or clear the chat history if needed.
     """
 )
@@ -49,19 +57,24 @@ for message in st.session_state.messages:
 
 # Chat input and response
 if prompt := st.chat_input("Write your message here..."):
-    with_message_history=llm_model(st.session_state.api_key)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    
-    with st.chat_message("assistant"):
+    try:
+        with_message_history = llm_model(st.session_state.api_key)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
         
-        stream = with_message_history.stream(
-            {"ability": "general", "question": prompt},
-            config={"configurable": {"conversation_id": st.session_state.conversation_id}}
-        )
-        response = st.write_stream(stream)
-    st.session_state.messages.append({"role": "assistant", "content": response})
+        with st.chat_message("assistant"):
+            stream = with_message_history.stream(
+                {"ability": "general", "question": prompt},
+                config={"configurable": {"conversation_id": st.session_state.conversation_id}}
+            )
+            response = st.write_stream(stream)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+    except AuthenticationError as e:
+        st.error("Authentication Error: Invalid API Key. Please check your Groq API key and try again.")
+        st.error(f"Error details: {str(e)}")
+        st.session_state.api_key = None
+        request_api_key()
 
 # Download button for chat history
 if st.session_state.messages:
