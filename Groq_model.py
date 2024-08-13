@@ -10,9 +10,8 @@ from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.runnables import ConfigurableFieldSpec
-from langchain_google_genai import ChatGoogleGenerativeAI 
+from langchain_groq import ChatGroq
 from langchain_core.runnables.history import RunnableWithMessageHistory
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,30 +35,42 @@ def get_session_history(conversation_id: str) -> BaseChatMessageHistory:
         store[conversation_id] = InMemoryHistory()
     return store[conversation_id]
 
+def clear_session_history(conversation_id: str) -> None:
+    """Clear the message history for a given conversation."""
+    if conversation_id in store:
+        store[conversation_id].clear()
+def delete_session(conversation_id: str) -> None:
+    """Delete the session and its message history."""
+    if conversation_id in store:
+        del store[conversation_id]
+
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You're an assistant"),
+    ("system", "You are a helpful assistant. Answer the user's questions clearly and accurately. Provide useful information and be polite. If you don't know the answer, let the user know and suggest where they might find more information."),
     MessagesPlaceholder(variable_name="history"),
     ("human", "{question}"),
 ])
 
-chain = prompt | ChatGoogleGenerativeAI(model="gemini-1.5-flash")
 
-with_message_history = RunnableWithMessageHistory(
-    chain,
-    get_session_history=get_session_history,
-    input_messages_key="question",
-    history_messages_key="history",
-    history_factory_config=[
-        ConfigurableFieldSpec(
-            id="conversation_id",
-            annotation=str,
-            name="Conversation ID",
-            description="Unique identifier for the conversation.",
-            default="",
-            is_shared=True,
-        ),
-    ],
-)
+def llm_model(api_key):
+    chain = prompt | ChatGroq(api_key=api_key,model="llama-3.1-8b-instant")
+
+    with_message_history = RunnableWithMessageHistory(
+        chain,
+        get_session_history=get_session_history,
+        input_messages_key="question",
+        history_messages_key="history",
+        history_factory_config=[
+            ConfigurableFieldSpec(
+                id="conversation_id",
+                annotation=str,
+                name="Conversation ID",
+                description="Unique identifier for the conversation.",
+                default="",
+                is_shared=True,
+            ),
+        ],
+    )
+    return with_message_history
 
 
 # while True:

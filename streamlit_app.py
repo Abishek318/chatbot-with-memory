@@ -1,86 +1,74 @@
 import streamlit as st
-
-# # memory store have two methods 
-# # 1) Using a ChatModel
-# # 2)using llm
-
-# 1) Using a ChatModel and gemini
-from typing import List
-from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.messages import BaseMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.runnables import ConfigurableFieldSpec
-from langchain_google_genai import ChatGoogleGenerativeAI 
-from langchain_core.runnables.history import RunnableWithMessageHistory
+from Groq_model import llm_model, clear_session_history
 import os
-from dotenv import load_dotenv
+import uuid
 
-load_dotenv()
+# Check for API key
+if "GROQ_API_KEY" in os.environ:
+    st.session_state.api_key=os.environ["GROQ_API_KEY"]
 
-class InMemoryHistory(BaseChatMessageHistory, BaseModel):
-    """In memory implementation of chat message history."""
-
-    messages: List[BaseMessage] = Field(default_factory=list)
-
-    def add_messages(self, messages: List[BaseMessage]) -> None:
-        """Add a list of messages to the store"""
-        self.messages.extend(messages)
-
-    def clear(self) -> None:
-        self.messages = []
-
-store = {}
-
-def get_session_history(conversation_id: str) -> BaseChatMessageHistory:
-    if conversation_id not in store:
-        store[conversation_id] = InMemoryHistory()
-    return store[conversation_id]
-
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You're an assistant"),
-    MessagesPlaceholder(variable_name="history"),
-    ("human", "{question}"),
-])
-
-chain = prompt | ChatGoogleGenerativeAI(model="gemini-1.5-flash")
-
-with_message_history = RunnableWithMessageHistory(
-    chain,
-    get_session_history=get_session_history,
-    input_messages_key="question",
-    history_messages_key="history",
-    history_factory_config=[
-        ConfigurableFieldSpec(
-            id="conversation_id",
-            annotation=str,
-            name="Conversation ID",
-            description="Unique identifier for the conversation.",
-            default="",
-            is_shared=True,
-        ),
-    ],
-)
-
+if "api_key" not in st.session_state:
+    st.sidebar.warning("Groq API Key not found in environment variables.")
+    api_key = st.sidebar.text_input("Please enter your Groq API Key:", type="password")
+    if api_key:
+        st.session_state.api_key= api_key
+        st.sidebar.success("API Key set successfully!")
+        st.rerun()
+    else:
+        st.sidebar.error("Please provide a valid API Key to continue.")
+        st.stop()
 
 st.title("Chatbot")
 
+st.sidebar.header("About This Bot")
+st.sidebar.write(
+    """
+    **Chatbot** is designed to assist you with various queries. 
+    It uses advanced AI to understand and respond to your messages. 
+    Feel free to ask anything or clear the chat history if needed.
+    """
+)
 
+# Initialize session state variables
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "conversation_id" not in st.session_state:
+    st.session_state.conversation_id = str(uuid.uuid4())
+
+# Sidebar options
+if st.sidebar.button("Clear Chat History"):
+    clear_session_history(st.session_state.conversation_id)
+    st.session_state.messages = []
+    st.sidebar.success("Chat history cleared!")
+
+# Display chat messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("write here"):
+# Chat input and response
+if prompt := st.chat_input("Write your message here..."):
+    with_message_history=llm_model(st.session_state.api_key)
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-
+    
     with st.chat_message("assistant"):
-        stream = with_message_history.stream({"question": prompt},
-            config={"configurable": {"conversation_id": "1"}}
+        
+        stream = with_message_history.stream(
+            {"ability": "general", "question": prompt},
+            config={"configurable": {"conversation_id": st.session_state.conversation_id}}
         )
         response = st.write_stream(stream)
     st.session_state.messages.append({"role": "assistant", "content": response})
+
+# Download button for chat history
+if st.session_state.messages:
+    chat_history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
+    st.sidebar.download_button(
+        label="Download Chat History",
+        data=chat_history,
+        file_name="chat_history.txt",
+        mime="text/plain"
+    )
