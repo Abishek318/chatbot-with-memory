@@ -1,6 +1,6 @@
 # Chatbot with Memory
 
-![Chatbot with Memory](path/to/your/sample/image.png)
+![Chatbot with Memory](sample_image/chatbot.png)
 
 A conversational AI chatbot designed to retain context and remember previous interactions, providing more personalized and coherent responses over time.
 
