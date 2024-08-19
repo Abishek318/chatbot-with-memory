@@ -31,9 +31,16 @@ st.title("Chatbot")
 st.sidebar.header("About This Bot")
 st.sidebar.write(
     """
-    **Chatbot** is designed to assist you with various queries. 
-    It uses advanced AI to understand and respond to your messages.
-    Feel free to ask anything or clear the chat history if needed.
+    Welcome to **MindFull Chatbot**!
+
+    Your AI-powered companion for intelligent conversations.
+
+    Key Features:
+    - 🧠 Remembers context for coherent dialogue
+    - 💡 Assists with queries, analysis, and creative tasks
+    - 🚀 Powered by Groq's advanced language model
+    
+    Feel free to ask anything.
     """
 )
 
