@@ -1,6 +1,5 @@
-langchain_groq
-streamlit
-langchain
-langchain-ollama
-python-dotenv
-streamlit
+langchain_groq==0.2.0
+streamlit==1.38.0
+langchain==0.3.1
+langchain-ollama==0.2.0
+python-dotenv==1.0.1
